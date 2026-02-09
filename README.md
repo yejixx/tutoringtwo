@@ -1,36 +1,221 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TutorHub - Tutor Marketplace
+
+A full-stack tutor marketplace MVP built with Next.js 15, connecting students with tutors for online tutoring sessions.
+
+## Features
+
+### For Students
+- 🔍 Search and filter tutors by subject, price, and availability
+- 📅 Book tutoring sessions with calendar-based scheduling
+- 💳 Secure payments via Stripe
+- ⭐ Leave reviews for completed sessions
+- 📊 Dashboard to track bookings
+
+### For Tutors
+- 👤 Create detailed tutor profiles with bio, subjects, and pricing
+- ⏰ Set flexible availability schedules
+- 📋 Manage incoming bookings
+- 💰 Receive payments via Stripe Connect (with 15% platform fee)
+- 📈 Track earnings and reviews
+
+## Tech Stack
+
+- **Framework:** Next.js 15 (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS v4
+- **Database:** PostgreSQL with Prisma ORM
+- **Authentication:** NextAuth.js v5
+- **Payments:** Stripe (Checkout + Connect)
+- **UI Components:** Custom shadcn/ui-style components
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 18+
+- PostgreSQL database
+- Stripe account (for payments)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <your-repo-url>
+   cd tutoringtwo
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Fill in the following variables:
+   ```env
+   # Database
+   DATABASE_URL="postgresql://user:password@localhost:5432/tutormarketplace?schema=public"
+
+   # NextAuth
+   AUTH_SECRET="generate-with-openssl-rand-base64-32"
+   NEXTAUTH_URL="http://localhost:3000"
+
+   # Stripe
+   STRIPE_SECRET_KEY="sk_test_..."
+   STRIPE_PUBLISHABLE_KEY="pk_test_..."
+   STRIPE_WEBHOOK_SECRET="whsec_..."
+
+   # App
+   NEXT_PUBLIC_APP_URL="http://localhost:3000"
+   ```
+
+4. **Set up the database**
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   ```
+
+5. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+6. **Open the app**
+   Visit [http://localhost:3000](http://localhost:3000)
+
+### Stripe Setup
+
+1. Create a Stripe account at [stripe.com](https://stripe.com)
+2. Get your API keys from the Stripe Dashboard
+3. Enable Stripe Connect in your Stripe settings
+4. For local development, use the Stripe CLI to forward webhooks:
+   ```bash
+   stripe listen --forward-to localhost:3000/api/webhooks/stripe
+   ```
+
+## Project Structure
+
+```
+src/
+├── app/                    # Next.js App Router pages
+│   ├── api/               # API routes
+│   │   ├── auth/          # Authentication
+│   │   ├── bookings/      # Booking CRUD
+│   │   ├── checkout/      # Stripe checkout
+│   │   ├── reviews/       # Review submissions
+│   │   ├── tutor/         # Tutor profile & availability
+│   │   ├── tutors/        # Tutor search
+│   │   ├── user/          # User profile
+│   │   └── webhooks/      # Stripe webhooks
+│   ├── bookings/          # Booking pages
+│   ├── dashboard/         # User dashboard
+│   ├── login/             # Login page
+│   ├── profile/           # User profile
+│   ├── register/          # Registration page
+│   ├── tutor/             # Tutor-specific pages
+│   └── tutors/            # Tutor search & profiles
+├── components/
+│   ├── dashboard/         # Dashboard components
+│   ├── layout/            # Header, Footer
+│   ├── tutor/             # Tutor-specific components
+│   └── ui/                # Reusable UI components
+├── lib/
+│   ├── auth.ts            # NextAuth configuration
+│   ├── prisma.ts          # Prisma client
+│   ├── stripe.ts          # Stripe utilities
+│   ├── types.ts           # TypeScript types
+│   └── utils.ts           # Utility functions
+└── prisma/
+    └── schema.prisma      # Database schema
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Database Schema
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Models
+- **User** - Students and tutors
+- **TutorProfile** - Extended profile for tutors
+- **AvailabilitySlot** - Tutor availability windows
+- **Booking** - Session bookings
+- **Review** - Student reviews
+- **Message** - Chat messages (future feature)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## API Endpoints
 
-## Learn More
+### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/signin` - Sign in
 
-To learn more about Next.js, take a look at the following resources:
+### Tutors
+- `GET /api/tutors` - Search tutors with filters
+- `GET /api/tutors/[id]` - Get tutor profile
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Tutor Profile
+- `GET /api/tutor/profile` - Get own profile
+- `POST /api/tutor/profile` - Create/update profile
+- `GET /api/tutor/availability` - Get availability
+- `POST /api/tutor/availability` - Set availability
+- `GET /api/tutor/stripe` - Get Stripe status
+- `POST /api/tutor/stripe` - Start Stripe onboarding
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Bookings
+- `GET /api/bookings` - List user's bookings
+- `POST /api/bookings` - Create booking
+- `GET /api/bookings/[id]` - Get booking details
+- `PATCH /api/bookings/[id]` - Update booking status
 
-## Deploy on Vercel
+### Payments
+- `POST /api/checkout` - Create Stripe checkout session
+- `POST /api/webhooks/stripe` - Handle Stripe webhooks
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Reviews
+- `POST /api/reviews` - Submit review
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Development
+
+### Database Commands
+```bash
+# Generate Prisma client
+npx prisma generate
+
+# Push schema changes
+npx prisma db push
+
+# Open Prisma Studio
+npx prisma studio
+
+# Create migration
+npx prisma migrate dev --name <migration-name>
+```
+
+### Testing Stripe Payments
+
+1. Use Stripe test cards:
+   - Success: `4242 4242 4242 4242`
+   - Decline: `4000 0000 0000 0002`
+
+2. Forward webhooks locally:
+   ```bash
+   stripe listen --forward-to localhost:3000/api/webhooks/stripe
+   ```
+
+## Deployment
+
+### Vercel (Recommended)
+
+1. Push to GitHub
+2. Import project in Vercel
+3. Add environment variables
+4. Deploy
+
+### Environment Variables for Production
+- Update `NEXTAUTH_URL` to your production URL
+- Update `NEXT_PUBLIC_APP_URL` to your production URL
+- Use production Stripe keys
+- Set up Stripe webhook endpoint in Stripe Dashboard
+
+## License
+
+MIT
