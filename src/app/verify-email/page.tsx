@@ -2,11 +2,12 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
-import { CheckCircle, XCircle, Mail, ArrowRight } from "lucide-react";
+import { CheckCircle, XCircle, Mail, ArrowRight, LogIn } from "lucide-react";
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
@@ -49,6 +50,11 @@ function VerifyEmailContent() {
     verifyEmail();
   }, [token]);
 
+  const handleSignInAgain = async () => {
+    // Sign out and redirect to login to get a fresh session with emailVerified=true
+    await signOut({ callbackUrl: "/login?message=email-verified" });
+  };
+
   return (
     <div className="min-h-[calc(100vh-200px)] flex items-center justify-center py-12 px-4">
       <Card className="w-full max-w-md text-center">
@@ -90,12 +96,15 @@ function VerifyEmailContent() {
         
         <CardContent className="space-y-4">
           {status === "success" && (
-            <Button asChild className="w-full">
-              <Link href="/dashboard">
-                Go to Dashboard
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Please sign in again to access all features with your verified account.
+              </p>
+              <Button onClick={handleSignInAgain} className="w-full">
+                <LogIn className="mr-2 h-4 w-4" />
+                Sign In to Continue
+              </Button>
+            </div>
           )}
           
           {status === "error" && (

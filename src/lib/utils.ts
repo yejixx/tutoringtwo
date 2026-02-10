@@ -66,7 +66,7 @@ export function generateTimeSlots(
 }
 
 export function calculatePlatformFee(price: number): number {
-  const feePercentage = parseInt(process.env.PLATFORM_FEE_PERCENTAGE || "15");
+  const feePercentage = parseInt(process.env.PLATFORM_FEE_PERCENTAGE || "5");
   return (price * feePercentage) / 100;
 }
 

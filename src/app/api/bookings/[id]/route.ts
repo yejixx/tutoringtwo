@@ -66,6 +66,7 @@ export async function GET(
       );
     }
 
+    // Include all lesson tracking fields in response
     return NextResponse.json({
       success: true,
       data: booking,

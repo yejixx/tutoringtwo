@@ -37,15 +37,17 @@ export async function POST(request: NextRequest) {
 
         if (bookingId) {
           // Update booking status to CONFIRMED and store payment info
+          // Payment is now held in escrow until lesson completion is verified
           await prisma.booking.update({
             where: { id: bookingId },
             data: {
               status: "CONFIRMED",
               stripePaymentId: session.payment_intent as string,
+              paidAt: new Date(),
             },
           });
 
-          console.log(`Booking ${bookingId} confirmed after payment`);
+          console.log(`Booking ${bookingId} confirmed - payment held in escrow`);
         }
         break;
       }

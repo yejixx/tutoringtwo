@@ -18,7 +18,11 @@ import {
   XCircle,
   Star,
   MessageSquare,
-  AlertCircle
+  AlertCircle,
+  PlayCircle,
+  StopCircle,
+  Shield,
+  AlertTriangle
 } from "lucide-react";
 import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
 
@@ -30,8 +34,19 @@ interface BookingData {
   status: string;
   price: number;
   notes: string | null;
+  // Lesson tracking fields
+  studentConfirmedStart: boolean;
+  tutorConfirmedStart: boolean;
+  studentConfirmedEnd: boolean;
+  tutorConfirmedEnd: boolean;
+  lessonStartedAt: string | null;
+  lessonEndedAt: string | null;
+  paymentReleasedAt: string | null;
+  disputeReason: string | null;
+  disputedAt: string | null;
   tutorProfile: {
     id: string;
+    stripeAccountId: string | null;
     user: {
       id: string;
       firstName: string;
@@ -109,14 +124,23 @@ function BookingDetailContent({ id }: { id: string }) {
   };
 
   const handleCancelBooking = async () => {
-    if (!confirm("Are you sure you want to cancel this booking?")) return;
+    // For tutors rejecting a REQUESTED booking, use REJECTED status
+    // For cancelling confirmed bookings, use CANCELLED status
+    const isRejection = booking?.status === "REQUESTED";
+    const confirmMessage = isRejection 
+      ? "Are you sure you want to reject this booking request?"
+      : "Are you sure you want to cancel this booking?";
+    
+    if (!confirm(confirmMessage)) return;
+    
+    const newStatus = isRejection ? "REJECTED" : "CANCELLED";
     
     setIsProcessing(true);
     try {
       const response = await fetch(`/api/bookings/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "CANCELLED" }),
+        body: JSON.stringify({ status: newStatus }),
       });
       
       if (response.ok) {
@@ -135,10 +159,14 @@ function BookingDetailContent({ id }: { id: string }) {
   const handleConfirmBooking = async () => {
     setIsProcessing(true);
     try {
+      // For REQUESTED status, approve to PENDING (awaiting payment)
+      // For PENDING status (already paid via webhook), this shouldn't be called
+      const newStatus = booking?.status === "REQUESTED" ? "PENDING" : "CONFIRMED";
+      
       const response = await fetch(`/api/bookings/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "CONFIRMED" }),
+        body: JSON.stringify({ status: newStatus }),
       });
       
       if (response.ok) {
@@ -176,6 +204,43 @@ function BookingDetailContent({ id }: { id: string }) {
     }
   };
 
+  // Lesson verification actions
+  const handleLessonAction = async (action: "confirm_start" | "confirm_end" | "complete" | "dispute", disputeReason?: string) => {
+    setIsProcessing(true);
+    setError(null);
+    try {
+      const body: { action: string; disputeReason?: string } = { action };
+      if (disputeReason) {
+        body.disputeReason = disputeReason;
+      }
+      
+      const response = await fetch(`/api/bookings/${id}/lesson`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        fetchBooking();
+      } else {
+        setError(data.error || "Failed to process lesson action");
+      }
+    } catch (err) {
+      setError("Failed to process lesson action");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDispute = () => {
+    const reason = prompt("Please describe the issue with this lesson:");
+    if (reason && reason.trim()) {
+      handleLessonAction("dispute", reason.trim());
+    }
+  };
+
   if (authStatus === "loading" || isLoading) {
     return <PageLoader />;
   }
@@ -206,21 +271,56 @@ function BookingDetailContent({ id }: { id: string }) {
   const otherPerson = isTutor ? booking.student : booking.tutorProfile.user;
   const otherPersonName = `${otherPerson.firstName} ${otherPerson.lastName}`;
   const isPast = new Date(booking.endTime) < new Date();
+  const isStartTime = new Date(booking.startTime) <= new Date();
+  
+  // Tutor approval capabilities
+  const canAccept = isTutor && booking.status === "REQUESTED";
+  const canReject = isTutor && booking.status === "REQUESTED";
+  
+  // Payment and review capabilities
   const canPay = isStudent && booking.status === "PENDING";
   const canReview = isStudent && booking.status === "COMPLETED" && !booking.review;
   const canCancel = (isStudent || isTutor) && 
-    (booking.status === "PENDING" || booking.status === "CONFIRMED") && !isPast;
-  const canConfirm = isTutor && booking.status === "PENDING";
-  const canComplete = isTutor && booking.status === "CONFIRMED" && isPast;
+    (booking.status === "REQUESTED" || booking.status === "PENDING" || booking.status === "CONFIRMED") && !isPast;
+  
+  // Lesson verification capabilities
+  const canConfirmLessonStart = booking.status === "CONFIRMED" && isStartTime && (
+    (isStudent && !booking.studentConfirmedStart) ||
+    (isTutor && !booking.tutorConfirmedStart)
+  );
+  
+  const canConfirmLessonEnd = booking.status === "IN_PROGRESS" && (
+    (isStudent && !booking.studentConfirmedEnd) ||
+    (isTutor && !booking.tutorConfirmedEnd)
+  );
+  
+  const canDispute = (booking.status === "IN_PROGRESS" || booking.status === "AWAITING_REVIEW") && 
+    !booking.disputedAt;
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline" | "success"> = {
+      REQUESTED: "outline",
       PENDING: "secondary",
-      CONFIRMED: "success",
-      COMPLETED: "outline",
+      CONFIRMED: "default",
+      IN_PROGRESS: "default",
+      AWAITING_REVIEW: "secondary",
+      COMPLETED: "success",
       CANCELLED: "destructive",
+      REJECTED: "destructive",
+      DISPUTED: "destructive",
     };
-    return <Badge variant={variants[status] || "secondary"}>{status}</Badge>;
+    const labels: Record<string, string> = {
+      REQUESTED: "Awaiting Approval",
+      PENDING: "Awaiting Payment",
+      CONFIRMED: "Paid - Scheduled",
+      IN_PROGRESS: "Lesson In Progress",
+      AWAITING_REVIEW: "Awaiting Completion",
+      COMPLETED: "Completed",
+      CANCELLED: "Cancelled",
+      REJECTED: "Rejected",
+      DISPUTED: "Disputed",
+    };
+    return <Badge variant={variants[status] || "secondary"}>{labels[status] || status}</Badge>;
   };
 
   const duration = Math.round(
@@ -331,6 +431,89 @@ function BookingDetailContent({ id }: { id: string }) {
             <span className="text-2xl font-bold">{formatCurrency(booking.price)}</span>
           </div>
 
+          {/* Escrow & Lesson Status */}
+          {(booking.status === "CONFIRMED" || booking.status === "IN_PROGRESS" || booking.status === "AWAITING_REVIEW" || booking.status === "COMPLETED") && (
+            <div className="p-4 border rounded-lg space-y-4">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-blue-600" />
+                <h3 className="font-semibold">Payment Protection</h3>
+              </div>
+              
+              {booking.status === "CONFIRMED" && (
+                <p className="text-sm text-muted-foreground">
+                  Payment is securely held until both parties confirm the lesson has completed.
+                </p>
+              )}
+
+              {/* Lesson Start Verification */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Lesson Start Confirmation:</p>
+                <div className="flex gap-4">
+                  <div className={`flex items-center gap-2 text-sm ${booking.studentConfirmedStart ? 'text-green-600' : 'text-muted-foreground'}`}>
+                    {booking.studentConfirmedStart ? <CheckCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                    Student {booking.studentConfirmedStart ? "confirmed" : "pending"}
+                  </div>
+                  <div className={`flex items-center gap-2 text-sm ${booking.tutorConfirmedStart ? 'text-green-600' : 'text-muted-foreground'}`}>
+                    {booking.tutorConfirmedStart ? <CheckCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                    Tutor {booking.tutorConfirmedStart ? "confirmed" : "pending"}
+                  </div>
+                </div>
+                {booking.lessonStartedAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Lesson started at {new Date(booking.lessonStartedAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
+
+              {/* Lesson End Verification - only show if lesson started */}
+              {(booking.status === "IN_PROGRESS" || booking.status === "AWAITING_REVIEW" || booking.status === "COMPLETED") && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Lesson End Confirmation:</p>
+                  <div className="flex gap-4">
+                    <div className={`flex items-center gap-2 text-sm ${booking.studentConfirmedEnd ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      {booking.studentConfirmedEnd ? <CheckCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                      Student {booking.studentConfirmedEnd ? "confirmed" : "pending"}
+                    </div>
+                    <div className={`flex items-center gap-2 text-sm ${booking.tutorConfirmedEnd ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      {booking.tutorConfirmedEnd ? <CheckCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                      Tutor {booking.tutorConfirmedEnd ? "confirmed" : "pending"}
+                    </div>
+                  </div>
+                  {booking.lessonEndedAt && (
+                    <p className="text-xs text-muted-foreground">
+                      Lesson ended at {new Date(booking.lessonEndedAt).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Payment Released */}
+              {booking.status === "COMPLETED" && booking.paymentReleasedAt && (
+                <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950 rounded-lg text-green-700 dark:text-green-300">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="text-sm font-medium">
+                    Payment released to tutor on {new Date(booking.paymentReleasedAt).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
+
+              {/* Dispute Info */}
+              {booking.disputedAt && (
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
+                  <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-300">
+                    <AlertTriangle className="h-5 w-5" />
+                    <span className="text-sm font-medium">Dispute Raised</span>
+                  </div>
+                  {booking.disputeReason && (
+                    <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-2">
+                      Reason: {booking.disputeReason}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex flex-wrap gap-3 pt-4 border-t">
             {canPay && (
@@ -351,7 +534,8 @@ function BookingDetailContent({ id }: { id: string }) {
               </Button>
             )}
 
-            {canConfirm && (
+            {/* Tutor: Accept booking request */}
+            {canAccept && (
               <Button 
                 onClick={handleConfirmBooking}
                 disabled={isProcessing}
@@ -360,24 +544,69 @@ function BookingDetailContent({ id }: { id: string }) {
                 {isProcessing ? "Processing..." : (
                   <>
                     <CheckCircle className="h-4 w-4 mr-2" />
-                    Confirm Booking
+                    Accept Request
                   </>
                 )}
               </Button>
             )}
 
-            {canComplete && (
+            {/* Tutor: Reject booking request */}
+            {canReject && (
               <Button 
-                onClick={handleCompleteBooking}
+                onClick={handleCancelBooking}
                 disabled={isProcessing}
-                className="flex-1"
+                variant="destructive"
               >
                 {isProcessing ? "Processing..." : (
                   <>
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Mark as Completed
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Reject Request
                   </>
                 )}
+              </Button>
+            )}
+
+            {canConfirmLessonStart && (
+              <Button 
+                onClick={() => handleLessonAction("confirm_start")}
+                disabled={isProcessing}
+                className="flex-1"
+                variant="default"
+              >
+                {isProcessing ? "Processing..." : (
+                  <>
+                    <PlayCircle className="h-4 w-4 mr-2" />
+                    {isStudent ? "Confirm Lesson Started" : "Confirm Lesson Started"}
+                  </>
+                )}
+              </Button>
+            )}
+
+            {canConfirmLessonEnd && (
+              <Button 
+                onClick={() => handleLessonAction("confirm_end")}
+                disabled={isProcessing}
+                className="flex-1"
+                variant="default"
+              >
+                {isProcessing ? "Processing..." : (
+                  <>
+                    <StopCircle className="h-4 w-4 mr-2" />
+                    {isStudent ? "Confirm Lesson Ended" : "Confirm Lesson Ended"}
+                  </>
+                )}
+              </Button>
+            )}
+
+            {canDispute && (
+              <Button 
+                onClick={handleDispute}
+                disabled={isProcessing}
+                variant="outline"
+                className="text-yellow-600 border-yellow-600 hover:bg-yellow-50"
+              >
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Report Issue
               </Button>
             )}
 

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, X, SlidersHorizontal } from "lucide-react";
+import { Search, X, SlidersHorizontal, Star, DollarSign, BookOpen } from "lucide-react";
 import { SUBJECTS } from "@/lib/utils";
 
 interface TutorFiltersProps {
@@ -83,72 +83,88 @@ export function TutorFilters({ onFilter }: TutorFiltersProps) {
   ];
 
   const FilterContent = () => (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Search */}
-      <div className="space-y-2">
-        <Label htmlFor="search">Search</Label>
+      <div className="space-y-3">
+        <Label htmlFor="search" className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+          <Search className="h-4 w-4" />
+          Search
+        </Label>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             id="search"
-            placeholder="Search tutors..."
+            placeholder="Name, subject, or keyword..."
             value={filters.search}
             onChange={(e) => handleFilterChange("search", e.target.value)}
-            className="pl-9"
+            className="bg-white border-slate-200"
           />
         </div>
       </div>
 
       {/* Subject */}
-      <div className="space-y-2">
-        <Label htmlFor="subject">Subject</Label>
+      <div className="space-y-3">
+        <Label htmlFor="subject" className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+          <BookOpen className="h-4 w-4" />
+          Subject
+        </Label>
         <Select
           id="subject"
           options={subjectOptions}
           value={filters.subject}
           onChange={(e) => handleFilterChange("subject", e.target.value)}
+          className="bg-white border-slate-200"
         />
       </div>
 
       {/* Price Range */}
-      <div className="space-y-2">
-        <Label>Price Range ($/hr)</Label>
-        <div className="flex gap-2">
+      <div className="space-y-3">
+        <Label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+          <DollarSign className="h-4 w-4" />
+          Price Range (per hour)
+        </Label>
+        <div className="flex gap-2 items-center">
           <Input
             type="number"
             placeholder="Min"
             value={filters.minPrice}
             onChange={(e) => handleFilterChange("minPrice", e.target.value)}
             min="0"
+            className="bg-white border-slate-200"
           />
+          <span className="text-slate-400">—</span>
           <Input
             type="number"
             placeholder="Max"
             value={filters.maxPrice}
             onChange={(e) => handleFilterChange("maxPrice", e.target.value)}
             min="0"
+            className="bg-white border-slate-200"
           />
         </div>
       </div>
 
       {/* Rating */}
-      <div className="space-y-2">
-        <Label htmlFor="rating">Minimum Rating</Label>
+      <div className="space-y-3">
+        <Label htmlFor="rating" className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+          <Star className="h-4 w-4" />
+          Minimum Rating
+        </Label>
         <Select
           id="rating"
           options={ratingOptions}
           value={filters.minRating}
           onChange={(e) => handleFilterChange("minRating", e.target.value)}
+          className="bg-white border-slate-200"
         />
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2 pt-2">
-        <Button onClick={applyFilters} className="flex-1">
+      <div className="flex gap-2 pt-4 border-t border-slate-100">
+        <Button onClick={applyFilters} className="flex-1 font-medium">
           Apply Filters
         </Button>
         {hasActiveFilters && (
-          <Button variant="outline" onClick={clearFilters}>
+          <Button variant="outline" onClick={clearFilters} className="px-3">
             <X className="h-4 w-4" />
           </Button>
         )}
@@ -163,7 +179,7 @@ export function TutorFilters({ onFilter }: TutorFiltersProps) {
         <Button
           variant="outline"
           onClick={() => setShowMobileFilters(true)}
-          className="w-full"
+          className="w-full bg-white"
         >
           <SlidersHorizontal className="h-4 w-4 mr-2" />
           Filters
@@ -177,10 +193,10 @@ export function TutorFilters({ onFilter }: TutorFiltersProps) {
 
       {/* Mobile Filter Drawer */}
       {showMobileFilters && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-background">
+        <div className="lg:hidden fixed inset-0 z-50 bg-white">
           <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="font-semibold text-lg">Filters</h2>
+            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              <h2 className="font-semibold text-lg text-slate-900">Filters</h2>
               <Button
                 variant="ghost"
                 size="icon"
@@ -189,7 +205,7 @@ export function TutorFilters({ onFilter }: TutorFiltersProps) {
                 <X className="h-5 w-5" />
               </Button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-4 bg-slate-50">
               <FilterContent />
             </div>
           </div>
@@ -197,9 +213,12 @@ export function TutorFilters({ onFilter }: TutorFiltersProps) {
       )}
 
       {/* Desktop Filters */}
-      <Card className="hidden lg:block">
-        <CardHeader>
-          <CardTitle className="text-lg">Filters</CardTitle>
+      <Card className="hidden lg:block border-0 shadow-sm bg-white sticky top-24">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+            <SlidersHorizontal className="h-5 w-5" />
+            Filters
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <FilterContent />

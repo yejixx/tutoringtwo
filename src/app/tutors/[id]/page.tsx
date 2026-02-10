@@ -11,14 +11,16 @@ import {
   CheckCircle, 
   Calendar, 
   Clock, 
-  DollarSign,
   MessageSquare,
   MapPin,
   Linkedin,
   Globe,
   GraduationCap,
   Languages,
-  Briefcase
+  Briefcase,
+  ArrowLeft,
+  Users,
+  Award
 } from "lucide-react";
 import { formatCurrency, formatTime, getInitials } from "@/lib/utils";
 
@@ -107,13 +109,13 @@ export default async function TutorProfilePage({ params }: PageProps) {
 
   const dayOrder = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
   const dayLabels: Record<string, string> = {
-    MONDAY: "Monday",
-    TUESDAY: "Tuesday",
-    WEDNESDAY: "Wednesday",
-    THURSDAY: "Thursday",
-    FRIDAY: "Friday",
-    SATURDAY: "Saturday",
-    SUNDAY: "Sunday",
+    MONDAY: "Mon",
+    TUESDAY: "Tue",
+    WEDNESDAY: "Wed",
+    THURSDAY: "Thu",
+    FRIDAY: "Fri",
+    SATURDAY: "Sat",
+    SUNDAY: "Sun",
   };
 
   type BookingWithReview = (typeof tutor.bookings)[number];
@@ -122,312 +124,354 @@ export default async function TutorProfilePage({ params }: PageProps) {
     .map((b: BookingWithReview) => b.review!);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Profile Header */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row gap-6">
-                <Avatar
-                  src={tutor.user.avatarUrl}
-                  fallback={getInitials(tutor.user.firstName, tutor.user.lastName)}
-                  size="xl"
-                  className="w-24 h-24"
-                />
-                <div className="flex-1">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h1 className="text-2xl font-bold">{displayName}</h1>
-                        {tutor.verified && (
-                          <CheckCircle className="h-5 w-5 text-primary" />
-                        )}
-                      </div>
-                      {tutor.headline && (
-                        <p className="text-muted-foreground mt-1">{tutor.headline}</p>
-                      )}
-                    </div>
-                  </div>
+    <div className="min-h-screen bg-slate-50">
+      {/* Back Navigation */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="container mx-auto px-4 py-4">
+          <Link 
+            href="/tutors"
+            className="inline-flex items-center text-sm text-slate-500 hover:text-slate-700 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to Tutors
+          </Link>
+        </div>
+      </div>
 
-                  <div className="flex flex-wrap items-center gap-4 mt-4 text-sm">
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="font-medium">
-                        {tutor.rating > 0 ? tutor.rating.toFixed(1) : "New"}
-                      </span>
-                      {tutor.totalReviews > 0 && (
-                        <span className="text-muted-foreground">
-                          ({tutor.totalReviews} reviews)
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      Member since {memberSince}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {tutor.subjects.map((subject: string) => (
-                      <Badge key={subject} variant="secondary">
-                        {subject}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
+      {/* Profile Header */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex flex-col md:flex-row gap-6 items-start">
+            <Avatar
+              src={tutor.user.avatarUrl}
+              fallback={getInitials(tutor.user.firstName, tutor.user.lastName)}
+              size="2xl"
+              className="ring-4 ring-white shadow-lg"
+            />
+            <div className="flex-1">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-2xl font-bold text-slate-900">{displayName}</h1>
+                {tutor.verified && (
+                  <Badge className="bg-blue-100 text-blue-700 border-0">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Verified
+                  </Badge>
+                )}
               </div>
-            </CardContent>
-          </Card>
-
-          {/* About */}
-          <Card>
-            <CardHeader>
-              <CardTitle>About</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="whitespace-pre-wrap">{tutor.bio}</p>
-            </CardContent>
-          </Card>
-
-          {/* Location & Links */}
-          {(tutor.location || tutor.linkedinUrl || tutor.websiteUrl || (tutor.languages && tutor.languages.length > 0)) && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Additional Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+              {tutor.headline && (
+                <p className="text-slate-600 mt-1 text-lg">{tutor.headline}</p>
+              )}
+              
+              <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-slate-500">
+                <div className="flex items-center gap-1.5">
+                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                  <span className="font-semibold text-slate-700">
+                    {tutor.rating > 0 ? tutor.rating.toFixed(1) : "New"}
+                  </span>
+                  {tutor.totalReviews > 0 && (
+                    <span>({tutor.totalReviews} reviews)</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="h-4 w-4" />
+                  Joined {memberSince}
+                </div>
                 {tutor.location && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span>{tutor.location}</span>
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4" />
+                    {tutor.location}
                   </div>
                 )}
-                
-                {tutor.languages && tutor.languages.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <Languages className="h-4 w-4 text-muted-foreground mt-0.5" />
-                    <div className="flex flex-wrap gap-1">
-                      {tutor.languages.map((lang: string) => (
-                        <Badge key={lang} variant="outline">{lang}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
+              </div>
 
-                <div className="flex gap-4">
-                  {tutor.linkedinUrl && (
-                    <a 
-                      href={tutor.linkedinUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-primary hover:underline"
-                    >
-                      <Linkedin className="h-4 w-4" />
-                      LinkedIn Profile
-                    </a>
-                  )}
-                  {tutor.websiteUrl && (
-                    <a 
-                      href={tutor.websiteUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-primary hover:underline"
-                    >
-                      <Globe className="h-4 w-4" />
-                      Website
-                    </a>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+              <div className="flex flex-wrap gap-2 mt-4">
+                {tutor.subjects.map((subject: string) => (
+                  <Badge key={subject} variant="secondary" className="bg-slate-100 text-slate-700 font-medium">
+                    {subject}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-          {/* Teaching Style */}
-          {tutor.teachingStyle && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Briefcase className="h-5 w-5" />
-                  Teaching Style
+      <div className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* About */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                  <Users className="h-5 w-5 text-slate-400" />
+                  About
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="whitespace-pre-wrap">{tutor.teachingStyle}</p>
+                <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">{tutor.bio}</p>
               </CardContent>
             </Card>
-          )}
 
-          {/* Experience */}
-          {tutor.experience && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Teaching Experience</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="whitespace-pre-wrap">{tutor.experience}</p>
-              </CardContent>
-            </Card>
-          )}
+            {/* Teaching Style */}
+            {tutor.teachingStyle && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                    <Briefcase className="h-5 w-5 text-slate-400" />
+                    Teaching Approach
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">{tutor.teachingStyle}</p>
+                </CardContent>
+              </Card>
+            )}
 
-          {/* Qualifications */}
-          {tutor.qualifications && tutor.qualifications.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <GraduationCap className="h-5 w-5" />
-                  Qualifications
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {tutor.qualifications.map((qual: { id: string; type: string; subject: string; institution: string; grade?: string | null; year?: number | null; verified: boolean }) => (
-                    <div key={qual.id} className="border-b pb-4 last:border-0 last:pb-0">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary">
-                          {qual.type === "A_LEVEL" ? "A-Level" : 
-                           qual.type === "BACHELORS" ? "Bachelor's" :
-                           qual.type === "MASTERS" ? "Master's" :
-                           qual.type === "PHD" ? "PhD" :
-                           qual.type}
-                        </Badge>
-                        {qual.verified && (
-                          <Badge variant="default" className="bg-green-600">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Verified
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="font-medium mt-2">{qual.subject}</p>
-                      <p className="text-sm text-muted-foreground">{qual.institution}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {qual.grade && `Grade: ${qual.grade}`}
-                        {qual.grade && qual.year && " • "}
-                        {qual.year && `${qual.year}`}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+            {/* Experience */}
+            {tutor.experience && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                    <Award className="h-5 w-5 text-slate-400" />
+                    Experience
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">{tutor.experience}</p>
+                </CardContent>
+              </Card>
+            )}
 
-          {/* Reviews */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Reviews ({tutor.totalReviews})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {reviews.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">
-                  No reviews yet. Be the first to leave a review!
-                </p>
-              ) : (
-                <div className="space-y-6">
-                  {reviews.map((review: NonNullable<BookingWithReview["review"]>) => (
-                    <div key={review.id} className="border-b pb-6 last:border-0 last:pb-0">
-                      <div className="flex items-start gap-3">
-                        <Avatar
-                          src={review.user.avatarUrl}
-                          fallback={getInitials(review.user.firstName, review.user.lastName)}
-                          size="sm"
-                        />
+            {/* Qualifications */}
+            {tutor.qualifications && tutor.qualifications.length > 0 && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                    <GraduationCap className="h-5 w-5 text-slate-400" />
+                    Qualifications
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {tutor.qualifications.map((qual: { id: string; type: string; subject: string; institution: string; grade?: string | null; year?: number | null; verified: boolean }) => (
+                      <div key={qual.id} className="flex items-start gap-4 pb-4 border-b border-slate-100 last:border-0 last:pb-0">
+                        <div className="p-2 bg-slate-100 rounded-lg">
+                          <GraduationCap className="h-5 w-5 text-slate-600" />
+                        </div>
                         <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">
-                              {review.user.firstName} {review.user.lastName}
-                            </span>
-                            <span className="text-sm text-muted-foreground">
-                              {new Date(review.createdAt).toLocaleDateString()}
-                            </span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium text-slate-900">{qual.subject}</p>
+                            <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-xs">
+                              {qual.type === "A_LEVEL" ? "A-Level" : 
+                               qual.type === "BACHELORS" ? "Bachelor's" :
+                               qual.type === "MASTERS" ? "Master's" :
+                               qual.type === "PHD" ? "PhD" :
+                               qual.type}
+                            </Badge>
+                            {qual.verified && (
+                              <Badge className="bg-green-100 text-green-700 border-0 text-xs">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Verified
+                              </Badge>
+                            )}
                           </div>
-                          <div className="flex items-center gap-0.5 mt-1">
-                            {[...Array(5)].map((_, i: number) => (
-                              <Star
-                                key={i}
-                                className={`h-4 w-4 ${
-                                  i < review.rating
-                                    ? "fill-yellow-400 text-yellow-400"
-                                    : "text-muted-foreground"
-                                }`}
-                              />
-                            ))}
-                          </div>
-                          {review.comment && (
-                            <p className="mt-2 text-sm">{review.comment}</p>
+                          <p className="text-sm text-slate-500 mt-1">{qual.institution}</p>
+                          {(qual.grade || qual.year) && (
+                            <p className="text-sm text-slate-400">
+                              {qual.grade && `Grade: ${qual.grade}`}
+                              {qual.grade && qual.year && " • "}
+                              {qual.year && `${qual.year}`}
+                            </p>
                           )}
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Booking Card */}
-          <Card className="sticky top-24">
-            <CardContent className="pt-6">
-              <div className="text-center mb-6">
-                <div className="text-3xl font-bold text-primary">
-                  {formatCurrency(tutor.hourlyRate)}
-                </div>
-                <p className="text-muted-foreground text-sm">per hour</p>
-              </div>
-
-              <Link href={`/tutors/${tutor.id}/book`}>
-                <Button className="w-full" size="lg">
-                  Book a Session
-                </Button>
-              </Link>
-
-              <div className="mt-3">
-                <MessageTutorButton 
-                  tutorId={tutor.user.id} 
-                  tutorName={`${tutor.user.firstName} ${tutor.user.lastName}`}
-                />
-              </div>
-
-              <div className="mt-6 pt-6 border-t">
-                <h4 className="font-medium mb-4 flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Availability
-                </h4>
-                {Object.keys(availabilityByDay).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No availability set yet
-                  </p>
-                ) : (
-                  <div className="space-y-3 text-sm">
-                    {dayOrder.map((day) => {
-                      const slots = availabilityByDay[day];
-                      if (!slots) return null;
-                      return (
-                        <div key={day} className="flex justify-between">
-                          <span className="font-medium">{dayLabels[day]}</span>
-                          <span className="text-muted-foreground">
-                            {slots.map((slot: AvailabilitySlot, i: number) => (
-                              <span key={slot.id}>
-                                {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
-                                {i < slots.length - 1 && ", "}
-                              </span>
-                            ))}
-                          </span>
+            {/* Additional Info */}
+            {(tutor.linkedinUrl || tutor.websiteUrl || (tutor.languages && tutor.languages.length > 0)) && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                    <Globe className="h-5 w-5 text-slate-400" />
+                    Additional Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {tutor.languages && tutor.languages.length > 0 && (
+                    <div className="flex items-start gap-3">
+                      <Languages className="h-5 w-5 text-slate-400 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-700 mb-1">Languages</p>
+                        <div className="flex flex-wrap gap-2">
+                          {tutor.languages.map((lang: string) => (
+                            <Badge key={lang} variant="outline" className="text-slate-600">{lang}</Badge>
+                          ))}
                         </div>
-                      );
-                    })}
+                      </div>
+                    </div>
+                  )}
+
+                  {(tutor.linkedinUrl || tutor.websiteUrl) && (
+                    <div className="flex gap-4 pt-2">
+                      {tutor.linkedinUrl && (
+                        <a 
+                          href={tutor.linkedinUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                        >
+                          <Linkedin className="h-4 w-4" />
+                          LinkedIn
+                        </a>
+                      )}
+                      {tutor.websiteUrl && (
+                        <a 
+                          href={tutor.websiteUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                        >
+                          <Globe className="h-4 w-4" />
+                          Website
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Reviews */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-slate-400" />
+                  Reviews
+                  {tutor.totalReviews > 0 && (
+                    <span className="text-sm font-normal text-slate-400">({tutor.totalReviews})</span>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {reviews.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="p-3 bg-slate-100 rounded-full w-fit mx-auto mb-3">
+                      <MessageSquare className="h-6 w-6 text-slate-400" />
+                    </div>
+                    <p className="text-slate-500">No reviews yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {reviews.map((review: NonNullable<BookingWithReview["review"]>) => (
+                      <div key={review.id} className="pb-6 border-b border-slate-100 last:border-0 last:pb-0">
+                        <div className="flex items-start gap-3">
+                          <Avatar
+                            src={review.user.avatarUrl}
+                            fallback={getInitials(review.user.firstName, review.user.lastName)}
+                            size="md"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <span className="font-medium text-slate-900">
+                                {review.user.firstName} {review.user.lastName}
+                              </span>
+                              <span className="text-sm text-slate-400">
+                                {new Date(review.createdAt).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric"
+                                })}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-0.5 mt-1">
+                              {[...Array(5)].map((_, i: number) => (
+                                <Star
+                                  key={i}
+                                  className={`h-4 w-4 ${
+                                    i < review.rating
+                                      ? "fill-amber-400 text-amber-400"
+                                      : "text-slate-200"
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            {review.comment && (
+                              <p className="mt-2 text-slate-600 text-sm leading-relaxed">{review.comment}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Booking Card */}
+            <Card className="border-0 shadow-sm sticky top-24">
+              <CardContent className="pt-6">
+                <div className="text-center mb-6">
+                  <div className="text-3xl font-bold text-slate-900">
+                    {formatCurrency(tutor.hourlyRate)}
+                  </div>
+                  <p className="text-slate-500 text-sm">per hour</p>
+                </div>
+
+                <Link href={`/tutors/${tutor.id}/book`}>
+                  <Button className="w-full font-medium" size="lg">
+                    Book a Session
+                  </Button>
+                </Link>
+
+                <div className="mt-3">
+                  <MessageTutorButton 
+                    tutorId={tutor.user.id} 
+                    tutorName={`${tutor.user.firstName} ${tutor.user.lastName}`}
+                  />
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-slate-100">
+                  <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-slate-400" />
+                    Weekly Availability
+                  </h4>
+                  {Object.keys(availabilityByDay).length === 0 ? (
+                    <p className="text-sm text-slate-500">
+                      No availability set yet
+                    </p>
+                  ) : (
+                    <div className="space-y-2 text-sm">
+                      {dayOrder.map((day) => {
+                        const slots = availabilityByDay[day];
+                        if (!slots) return null;
+                        return (
+                          <div key={day} className="flex justify-between py-1.5 border-b border-slate-50 last:border-0">
+                            <span className="font-medium text-slate-700">{dayLabels[day]}</span>
+                            <span className="text-slate-500">
+                              {slots.map((slot: AvailabilitySlot, i: number) => (
+                                <span key={slot.id}>
+                                  {formatTime(slot.startTime)}-{formatTime(slot.endTime)}
+                                  {i < slots.length - 1 && ", "}
+                                </span>
+                              ))}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

@@ -54,10 +54,11 @@ interface TutorProfileData {
 
 export default function TutorProfilePage() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: session, status, update: updateSession } = useSession();
   const [profile, setProfile] = useState<TutorProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     async function fetchProfile() {
@@ -79,10 +80,16 @@ export default function TutorProfilePage() {
 
     if (status === "authenticated" && session?.user?.role === "TUTOR") {
       fetchProfile();
+      setAvatarUrl(session.user.avatarUrl || undefined);
     } else if (status !== "loading") {
       setLoading(false);
     }
   }, [status, session]);
+
+  const handleAvatarChange = async (newUrl: string) => {
+    setAvatarUrl(newUrl);
+    await updateSession();
+  };
 
   if (status === "loading" || loading) {
     return <PageLoader />;
@@ -165,10 +172,12 @@ export default function TutorProfilePage() {
           <CardContent className="pt-6">
             <div className="flex flex-col sm:flex-row gap-6">
               <Avatar
-                src={user?.avatarUrl}
+                src={avatarUrl}
                 fallback={getInitials(user?.firstName || "", user?.lastName || "")}
                 size="xl"
                 className="w-24 h-24"
+                editable={true}
+                onUpload={handleAvatarChange}
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">

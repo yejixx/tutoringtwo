@@ -5,8 +5,8 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   typescript: true,
 });
 
-// Platform fee percentage (15%)
-export const PLATFORM_FEE_PERCENTAGE = 15;
+// Platform fee percentage (5%)
+export const PLATFORM_FEE_PERCENTAGE = 5;
 
 export function calculatePlatformFee(amount: number): number {
   return Math.round(amount * (PLATFORM_FEE_PERCENTAGE / 100));
@@ -36,6 +36,10 @@ export interface CreateCheckoutSessionParams {
   tutorStripeAccountId?: string | null;
 }
 
+/**
+ * Create a checkout session for escrow payment
+ * Payment is captured immediately but NOT transferred to tutor until lesson is verified
+ */
 export async function createCheckoutSession({
   bookingId,
   tutorName,
@@ -46,7 +50,6 @@ export async function createCheckoutSession({
   tutorStripeAccountId,
 }: CreateCheckoutSessionParams): Promise<Stripe.Checkout.Session> {
   const amountInCents = dollarsToCents(amount);
-  const platformFeeInCents = dollarsToCents(calculatePlatformFee(amount));
 
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     payment_method_types: ["card"],
@@ -58,7 +61,7 @@ export async function createCheckoutSession({
           currency: "usd",
           product_data: {
             name: `Tutoring Session: ${subject}`,
-            description: `Session with ${tutorName} on ${startTime.toLocaleDateString()}`,
+            description: `Session with ${tutorName} on ${startTime.toLocaleDateString()} - Payment held until lesson completion`,
           },
           unit_amount: amountInCents,
         },
@@ -67,22 +70,58 @@ export async function createCheckoutSession({
     ],
     metadata: {
       bookingId,
+      tutorStripeAccountId: tutorStripeAccountId || "",
+      escrow: "true", // Mark as escrow payment
     },
+    // For escrow, we DON'T set transfer_data here - we'll transfer manually after lesson completion
     success_url: `${process.env.NEXT_PUBLIC_APP_URL}/bookings/${bookingId}?success=true`,
     cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/bookings/${bookingId}?cancelled=true`,
   };
 
-  // If tutor has connected Stripe account, use Stripe Connect
-  if (tutorStripeAccountId) {
-    sessionParams.payment_intent_data = {
-      application_fee_amount: platformFeeInCents,
-      transfer_data: {
-        destination: tutorStripeAccountId,
-      },
-    };
-  }
-
   return stripe.checkout.sessions.create(sessionParams);
+}
+
+/**
+ * Release escrow payment to tutor after lesson is verified complete
+ */
+export async function releaseEscrowPayment(
+  paymentIntentId: string,
+  tutorStripeAccountId: string,
+  amount: number // in dollars
+): Promise<Stripe.Transfer> {
+  const platformFee = calculatePlatformFee(amount);
+  const tutorPayout = amount - platformFee;
+  const tutorPayoutInCents = dollarsToCents(tutorPayout);
+
+  // Create a transfer to the tutor's connected account
+  const transfer = await stripe.transfers.create({
+    amount: tutorPayoutInCents,
+    currency: "usd",
+    destination: tutorStripeAccountId,
+    source_transaction: paymentIntentId.startsWith("ch_") ? paymentIntentId : undefined,
+    metadata: {
+      paymentIntentId,
+      type: "lesson_completion_payout",
+    },
+  });
+
+  return transfer;
+}
+
+/**
+ * Refund escrow payment if lesson is cancelled or disputed
+ */
+export async function refundEscrowPayment(
+  paymentIntentId: string,
+  reason?: string
+): Promise<Stripe.Refund> {
+  return stripe.refunds.create({
+    payment_intent: paymentIntentId,
+    reason: "requested_by_customer",
+    metadata: {
+      reason: reason || "Lesson cancelled",
+    },
+  });
 }
 
 export interface CreateConnectAccountParams {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sanitizeMessage, isValidId } from "@/lib/sanitize";
+import { rateLimiters, getRateLimitHeaders } from "@/lib/rate-limit";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -118,6 +120,18 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Rate limit: 30 messages per minute per user
+    const rateLimitResult = rateLimiters.relaxed(`message:${session.user.id}`);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: rateLimitResult.message },
+        { 
+          status: 429,
+          headers: getRateLimitHeaders(rateLimitResult),
+        }
+      );
+    }
+
     const { id: conversationId } = await params;
     const userId = session.user.id;
     const body = await req.json();
@@ -126,6 +140,23 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     if (!content || content.trim().length === 0) {
       return NextResponse.json(
         { error: "Message content is required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate conversation ID
+    if (!isValidId(conversationId)) {
+      return NextResponse.json(
+        { error: "Invalid conversation ID" },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize message content
+    const sanitizedContent = sanitizeMessage(content);
+    if (!sanitizedContent) {
+      return NextResponse.json(
+        { error: "Invalid message content" },
         { status: 400 }
       );
     }
@@ -151,10 +182,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // Tutors can only reply in existing conversations (already checked by finding the conversation)
     // Students can always message in their conversations
 
-    // Create the message
+    // Create the message with sanitized content
     const message = await prisma.message.create({
       data: {
-        content: content.trim(),
+        content: sanitizedContent,
         senderId: userId,
         conversationId,
       },

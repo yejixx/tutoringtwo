@@ -206,16 +206,16 @@ function RegisterForm() {
   ];
 
   return (
-    <div className="min-h-[calc(100vh-200px)] flex items-center justify-center py-12 px-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-[calc(100vh-200px)] flex items-center justify-center py-12 px-4 bg-slate-50">
+      <Card className="w-full max-w-md border-0 shadow-lg">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <GraduationCap className="h-6 w-6 text-primary" />
+            <div className="p-3 bg-primary rounded-xl">
+              <GraduationCap className="h-6 w-6 text-white" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-2xl font-bold text-slate-900">Create an account</CardTitle>
+          <CardDescription className="text-slate-500">
             Join TutorHub and start your learning journey
           </CardDescription>
         </CardHeader>

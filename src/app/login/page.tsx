@@ -106,26 +106,28 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-200px)] flex items-center justify-center py-12 px-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-[calc(100vh-200px)] flex items-center justify-center py-12 px-4 bg-slate-50">
+      <Card className="w-full max-w-md border-0 shadow-lg">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <GraduationCap className="h-6 w-6 text-primary" />
+            <div className="p-3 bg-primary rounded-xl">
+              <GraduationCap className="h-6 w-6 text-white" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-2xl font-bold text-slate-900">Welcome back</CardTitle>
+          <CardDescription className="text-slate-500">
             Enter your credentials to access your account
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
-            {/* Success message (e.g., after registration) */}
+            {/* Success message (e.g., after registration or email verification) */}
             {message && !errorMessage && (
               <div className="flex items-center gap-2 p-3 text-sm text-green-700 bg-green-50 rounded-md border border-green-200">
                 <CheckCircle className="h-4 w-4 shrink-0" />
-                {message}
+                {message === "email-verified" 
+                  ? "Email verified successfully! Please sign in to continue."
+                  : message}
               </div>
             )}
             

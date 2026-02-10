@@ -4,6 +4,8 @@ import prisma from "@/lib/prisma";
 import { CreateBookingInput } from "@/lib/types";
 import { calculatePlatformFee, calculateTutorEarnings } from "@/lib/utils";
 import { emailService } from "@/lib/email";
+import { rateLimiters, getRateLimitHeaders } from "@/lib/rate-limit";
+import { sanitizeString, sanitizeNotes, isValidId } from "@/lib/sanitize";
 
 // GET - Fetch bookings for current user
 export async function GET(request: NextRequest) {
@@ -103,6 +105,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Rate limit: 10 booking requests per minute per user
+    const rateLimitResult = rateLimiters.standard(`booking:${session.user.id}`);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { success: false, error: rateLimitResult.message },
+        { 
+          status: 429,
+          headers: getRateLimitHeaders(rateLimitResult),
+        }
+      );
+    }
+
     if (session.user.role !== "STUDENT") {
       return NextResponse.json(
         { success: false, error: "Only students can create bookings" },
@@ -117,6 +131,24 @@ export async function POST(request: NextRequest) {
     if (!tutorProfileId || !subject || !startTime || !endTime) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    // Validate and sanitize inputs
+    if (!isValidId(tutorProfileId)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid tutor profile ID" },
+        { status: 400 }
+      );
+    }
+
+    const sanitizedSubject = sanitizeString(subject);
+    const sanitizedNotes = sanitizeNotes(notes);
+
+    if (!sanitizedSubject || sanitizedSubject.length > 100) {
+      return NextResponse.json(
+        { success: false, error: "Invalid subject" },
         { status: 400 }
       );
     }
@@ -220,14 +252,14 @@ export async function POST(request: NextRequest) {
       data: {
         studentId: session.user.id,
         tutorProfileId,
-        subject,
+        subject: sanitizedSubject,
         startTime: start,
         endTime: end,
         status: "REQUESTED" as any,
         price,
         platformFee,
         tutorEarnings,
-        notes,
+        notes: sanitizedNotes,
       },
       include: {
         tutorProfile: {

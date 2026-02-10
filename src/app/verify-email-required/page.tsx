@@ -95,11 +95,11 @@ function VerifyEmailRequiredContent() {
 
             <Button 
               variant="outline" 
-              onClick={() => window.location.reload()}
+              onClick={handleSignOut}
               className="w-full"
             >
               <RefreshCw className="mr-2 h-4 w-4" />
-              I&apos;ve Verified - Refresh
+              I&apos;ve Verified - Sign In Again
             </Button>
 
             <Button 
@@ -113,6 +113,7 @@ function VerifyEmailRequiredContent() {
           </div>
 
           <p className="text-xs text-muted-foreground">
+            After verifying your email, please sign in again to access all features.
             Didn&apos;t receive the email? Check your spam folder or{" "}
             <button 
               onClick={handleResend}
