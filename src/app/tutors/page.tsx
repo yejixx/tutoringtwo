@@ -90,8 +90,26 @@ function TutorsList() {
           {/* Results */}
           <main className="flex-1 min-w-0">
             {isLoading ? (
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12">
-                <PageLoader />
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-pulse">
+                    <div className="flex gap-4">
+                      <div className="h-16 w-16 rounded-full bg-slate-200 shrink-0" />
+                      <div className="flex-1 space-y-3">
+                        <div className="h-5 bg-slate-200 rounded w-1/3" />
+                        <div className="h-4 bg-slate-200 rounded w-1/2" />
+                        <div className="flex gap-2">
+                          <div className="h-6 bg-slate-200 rounded-full w-20" />
+                          <div className="h-6 bg-slate-200 rounded-full w-16" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      <div className="h-4 bg-slate-200 rounded w-full" />
+                      <div className="h-4 bg-slate-200 rounded w-3/4" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : error ? (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">

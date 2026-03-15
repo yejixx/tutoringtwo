@@ -12,8 +12,13 @@ function createPrismaClient(): PrismaClient {
     throw new Error("DATABASE_URL environment variable is not set");
   }
 
-  // Pass PoolConfig object to PrismaNeon for Neon serverless PostgreSQL
-  const adapter = new PrismaNeon({ connectionString });
+  // Use Neon's HTTP-based serverless driver for fast queries
+  // connect_timeout of 10s handles cold starts without being too long
+  const urlWithTimeout = connectionString.includes('connect_timeout')
+    ? connectionString
+    : `${connectionString}${connectionString.includes('?') ? '&' : '?'}connect_timeout=10`;
+
+  const adapter = new PrismaNeon({ connectionString: urlWithTimeout });
   
   return new PrismaClient({
     adapter,

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { cache } from "@/lib/cache";
+import { sanitizeString, sanitizeUrl } from "@/lib/sanitize";
+import { rateLimiters, getRateLimitHeaders } from "@/lib/rate-limit";
 
 // GET - Fetch current tutor's profile
 export async function GET() {
@@ -63,6 +66,18 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    // Rate limit: 10 profile updates per minute
+    const rateLimitResult = rateLimiters.standard(`tutor-profile:${session.user.id}`);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { success: false, error: rateLimitResult.message },
+        { 
+          status: 429,
+          headers: getRateLimitHeaders(rateLimitResult),
+        }
       );
     }
 
@@ -149,6 +164,9 @@ export async function PUT(request: NextRequest) {
         ...(experience !== undefined && { experience: experience || null }),
       },
     });
+
+    // Invalidate tutor caches so changes show immediately
+    cache.invalidatePrefix("tutors:");
 
     return NextResponse.json({
       success: true,

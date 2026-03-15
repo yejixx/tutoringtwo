@@ -9,6 +9,18 @@ const resendAttempts = new Map<string, { count: number; lastAttempt: number }>()
 const MAX_RESEND_ATTEMPTS = 3;
 const RESEND_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
+// Periodic cleanup to prevent memory leaks
+if (typeof setInterval !== "undefined") {
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of resendAttempts.entries()) {
+      if (now - entry.lastAttempt > RESEND_WINDOW_MS * 2) {
+        resendAttempts.delete(key);
+      }
+    }
+  }, 10 * 60 * 1000); // Clean every 10 minutes
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();

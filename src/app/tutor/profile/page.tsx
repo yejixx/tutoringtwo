@@ -193,17 +193,21 @@ export default function TutorProfilePage() {
                 )}
 
                 <div className="flex flex-wrap items-center gap-4 mt-4 text-sm">
-                  <div className="flex items-center gap-1">
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span className="font-medium">
-                      {profile.rating > 0 ? profile.rating.toFixed(1) : "New"}
-                    </span>
-                    {profile.totalReviews > 0 && (
-                      <span className="text-muted-foreground">
-                        ({profile.totalReviews} reviews)
+                  {profile.rating > 0 ? (
+                    <div className="flex items-center gap-1">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span className="font-medium">
+                        {profile.rating.toFixed(1)}
                       </span>
-                    )}
-                  </div>
+                      {profile.totalReviews > 0 && (
+                        <span className="text-muted-foreground">
+                          ({profile.totalReviews} reviews)
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-slate-400 text-sm">No reviews yet</span>
+                  )}
                   <div className="font-medium text-primary">
                     {formatCurrency(profile.hourlyRate)}/hr
                   </div>

@@ -57,21 +57,12 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check email verification for protected routes
-  if (session && requiresVerification && !(session.user as any).emailVerified) {
-    // Redirect to a verification required page
-    const verifyUrl = new URL('/verify-email-required', request.url);
-    verifyUrl.searchParams.set('callbackUrl', pathname);
-    return NextResponse.redirect(verifyUrl);
-  }
+  // Allow access but show a banner reminder instead of blocking
+  // This prevents the confusing redirect loop after login
+  // The EmailVerificationBanner component handles the reminder UI
 
   // Redirect to dashboard if accessing auth routes while logged in
   if (isAuthRoute && session) {
-    // If logged in but not verified, allow access to complete verification
-    if (!(session.user as any).emailVerified) {
-      // Allow them to stay on auth routes to potentially resend verification
-      const response = NextResponse.next();
-      return response;
-    }
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 

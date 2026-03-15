@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { rateLimiters, getRateLimitHeaders } from "@/lib/rate-limit";
 import { 
   createConnectAccount, 
   createAccountLink, 
@@ -71,6 +72,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    // Rate limit: 3 Stripe connect attempts per minute
+    const rateLimitResult = rateLimiters.strict(`stripe-connect:${session.user.id}`);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: rateLimitResult.message },
+        { 
+          status: 429,
+          headers: getRateLimitHeaders(rateLimitResult),
+        }
       );
     }
 

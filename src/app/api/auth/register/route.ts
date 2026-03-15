@@ -15,12 +15,30 @@ import { emailService } from "@/lib/email";
 const registrationAttempts = new Map<string, { count: number; lastAttempt: number }>();
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_MAP_SIZE = 10000; // Prevent memory exhaustion
+
+// Periodic cleanup
+if (typeof setInterval !== "undefined") {
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of registrationAttempts.entries()) {
+      if (now - entry.lastAttempt > WINDOW_MS * 2) {
+        registrationAttempts.delete(key);
+      }
+    }
+  }, 5 * 60 * 1000);
+}
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const attempts = registrationAttempts.get(ip);
   
   if (!attempts) {
+    // Prevent memory exhaustion
+    if (registrationAttempts.size >= MAX_MAP_SIZE) {
+      const oldestKey = registrationAttempts.keys().next().value;
+      if (oldestKey) registrationAttempts.delete(oldestKey);
+    }
     registrationAttempts.set(ip, { count: 1, lastAttempt: now });
     return true;
   }

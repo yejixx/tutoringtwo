@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { sanitizeString } from "@/lib/sanitize";
+import { rateLimiters, getRateLimitHeaders } from "@/lib/rate-limit";
 
 // GET - Fetch tutor's qualifications
 export async function GET() {
@@ -66,6 +68,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Rate limit: 10 qualification additions per minute
+    const rateLimitResult = rateLimiters.standard(`qualification:${session.user.id}`);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { success: false, error: rateLimitResult.message },
+        { 
+          status: 429,
+          headers: getRateLimitHeaders(rateLimitResult),
+        }
+      );
+    }
+
     if (session.user.role !== "TUTOR") {
       return NextResponse.json(
         { success: false, error: "Only tutors can add qualifications" },
@@ -120,9 +134,9 @@ export async function POST(request: NextRequest) {
       data: {
         tutorProfileId: profile.id,
         type,
-        subject,
-        institution,
-        grade: grade || null,
+        subject: sanitizeString(subject).slice(0, 200),
+        institution: sanitizeString(institution).slice(0, 200),
+        grade: grade ? sanitizeString(grade).slice(0, 50) : null,
         year: year || null,
       },
     });

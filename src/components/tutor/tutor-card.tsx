@@ -52,14 +52,20 @@ export function TutorCard({ tutor }: TutorCardProps) {
               {/* Rating and price row */}
               <div className="flex items-center gap-4 mt-3">
                 <div className="flex items-center gap-1">
-                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                  <span className="font-semibold text-slate-900">
-                    {tutor.rating > 0 ? tutor.rating.toFixed(1) : "New"}
-                  </span>
-                  {tutor.totalReviews > 0 && (
-                    <span className="text-sm text-slate-500">
-                      ({tutor.totalReviews})
-                    </span>
+                  {tutor.rating > 0 ? (
+                    <>
+                      <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                      <span className="font-semibold text-slate-900">
+                        {tutor.rating.toFixed(1)}
+                      </span>
+                      {tutor.totalReviews > 0 && (
+                        <span className="text-sm text-slate-500">
+                          ({tutor.totalReviews})
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-sm text-slate-400">No reviews yet</span>
                   )}
                 </div>
                 <div className="h-4 w-px bg-slate-200" />

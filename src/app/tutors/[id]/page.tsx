@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
+import { withCache, cacheKeys, cacheTTL } from "@/lib/cache";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,58 +30,65 @@ interface PageProps {
 }
 
 async function getTutor(id: string) {
-  const tutorProfile = await prisma.tutorProfile.findUnique({
-    where: { id },
-    include: {
-      user: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          avatarUrl: true,
-          createdAt: true,
-        },
-      },
-      availabilitySlots: {
-        orderBy: [
-          { dayOfWeek: "asc" },
-          { startTime: "asc" },
-        ],
-      },
-      qualifications: {
-        orderBy: [
-          { year: "desc" },
-          { createdAt: "desc" },
-        ],
-      },
-      bookings: {
-        where: {
-          review: {
-            isNot: null,
-          },
-        },
+  return withCache(
+    cacheKeys.tutorProfile(id),
+    async () => {
+      const tutorProfile = await prisma.tutorProfile.findUnique({
+        where: { id },
         include: {
-          review: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+              createdAt: true,
+            },
+          },
+          availabilitySlots: {
+            orderBy: [
+              { dayOfWeek: "asc" },
+              { startTime: "asc" },
+            ],
+          },
+          qualifications: {
+            orderBy: [
+              { year: "desc" },
+              { createdAt: "desc" },
+            ],
+          },
+          bookings: {
+            where: {
+              review: {
+                isNot: null,
+              },
+            },
             include: {
-              user: {
-                select: {
-                  firstName: true,
-                  lastName: true,
-                  avatarUrl: true,
+              review: {
+                include: {
+                  user: {
+                    select: {
+                      firstName: true,
+                      lastName: true,
+                      avatarUrl: true,
+                    },
+                  },
                 },
               },
             },
+            orderBy: {
+              createdAt: "desc",
+            },
+            take: 10,
           },
         },
-        orderBy: {
-          createdAt: "desc",
-        },
-        take: 10,
-      },
-    },
-  });
+      });
 
-  return tutorProfile;
+      return tutorProfile;
+    },
+    cacheTTL.LONG,
+    cacheTTL.MEDIUM
+  ) as any;
 }
 
 export default async function TutorProfilePage({ params }: PageProps) {
@@ -98,14 +106,13 @@ export default async function TutorProfilePage({ params }: PageProps) {
   });
 
   // Group availability by day
-  type AvailabilitySlot = (typeof tutor.availabilitySlots)[number];
-  const availabilityByDay = tutor.availabilitySlots.reduce<Record<string, AvailabilitySlot[]>>((acc: Record<string, AvailabilitySlot[]>, slot: AvailabilitySlot) => {
+  const availabilityByDay = (tutor.availabilitySlots as any[]).reduce((acc: Record<string, any[]>, slot: any) => {
     if (!acc[slot.dayOfWeek]) {
       acc[slot.dayOfWeek] = [];
     }
     acc[slot.dayOfWeek].push(slot);
     return acc;
-  }, {});
+  }, {} as Record<string, any[]>);
 
   const dayOrder = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
   const dayLabels: Record<string, string> = {
@@ -118,10 +125,9 @@ export default async function TutorProfilePage({ params }: PageProps) {
     SUNDAY: "Sun",
   };
 
-  type BookingWithReview = (typeof tutor.bookings)[number];
-  const reviews = tutor.bookings
-    .filter((b: BookingWithReview) => b.review)
-    .map((b: BookingWithReview) => b.review!);
+  const reviews = (tutor.bookings as any[])
+    .filter((b: any) => b.review)
+    .map((b: any) => b.review!);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -163,15 +169,19 @@ export default async function TutorProfilePage({ params }: PageProps) {
               )}
               
               <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-slate-500">
-                <div className="flex items-center gap-1.5">
-                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                  <span className="font-semibold text-slate-700">
-                    {tutor.rating > 0 ? tutor.rating.toFixed(1) : "New"}
-                  </span>
-                  {tutor.totalReviews > 0 && (
-                    <span>({tutor.totalReviews} reviews)</span>
-                  )}
-                </div>
+                {tutor.rating > 0 ? (
+                  <div className="flex items-center gap-1.5">
+                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                    <span className="font-semibold text-slate-700">
+                      {tutor.rating.toFixed(1)}
+                    </span>
+                    {tutor.totalReviews > 0 && (
+                      <span>({tutor.totalReviews} reviews)</span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-slate-400">No reviews yet</span>
+                )}
                 <div className="flex items-center gap-1.5">
                   <Calendar className="h-4 w-4" />
                   Joined {memberSince}
@@ -367,7 +377,7 @@ export default async function TutorProfilePage({ params }: PageProps) {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {reviews.map((review: NonNullable<BookingWithReview["review"]>) => (
+                    {reviews.map((review: any) => (
                       <div key={review.id} className="pb-6 border-b border-slate-100 last:border-0 last:pb-0">
                         <div className="flex items-start gap-3">
                           <Avatar
@@ -456,7 +466,7 @@ export default async function TutorProfilePage({ params }: PageProps) {
                           <div key={day} className="flex justify-between py-1.5 border-b border-slate-50 last:border-0">
                             <span className="font-medium text-slate-700">{dayLabels[day]}</span>
                             <span className="text-slate-500">
-                              {slots.map((slot: AvailabilitySlot, i: number) => (
+                              {slots.map((slot: any, i: number) => (
                                 <span key={slot.id}>
                                   {formatTime(slot.startTime)}-{formatTime(slot.endTime)}
                                   {i < slots.length - 1 && ", "}

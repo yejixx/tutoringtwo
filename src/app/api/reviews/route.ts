@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { rateLimiters, getRateLimitHeaders } from "@/lib/rate-limit";
+import { isValidId, sanitizeString } from "@/lib/sanitize";
+import { cache } from "@/lib/cache";
 
 // POST - Create a review
 export async function POST(request: NextRequest) {
@@ -11,6 +14,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    // Rate limit: 3 reviews per minute
+    const rateLimitResult = rateLimiters.strict(`review:${session.user.id}`);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { success: false, error: rateLimitResult.message },
+        { 
+          status: 429,
+          headers: getRateLimitHeaders(rateLimitResult),
+        }
       );
     }
 
@@ -25,12 +40,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (rating < 1 || rating > 5) {
+    // Validate booking ID format
+    if (!isValidId(bookingId)) {
       return NextResponse.json(
-        { success: false, error: "Rating must be between 1 and 5" },
+        { success: false, error: "Invalid booking ID" },
         { status: 400 }
       );
     }
+
+    if (typeof rating !== "number" || rating < 1 || rating > 5 || !Number.isInteger(rating)) {
+      return NextResponse.json(
+        { success: false, error: "Rating must be an integer between 1 and 5" },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize comment
+    const sanitizedComment = comment ? sanitizeString(comment).slice(0, 2000) : null;
 
     // Get booking
     const booking = await prisma.booking.findUnique({
@@ -78,7 +104,7 @@ export async function POST(request: NextRequest) {
         bookingId,
         userId: session.user.id,
         rating,
-        comment: comment || null,
+        comment: sanitizedComment,
       },
     });
 
@@ -101,6 +127,9 @@ export async function POST(request: NextRequest) {
         totalReviews: tutorReviews.length,
       },
     });
+
+    // Invalidate tutor caches so updated rating shows immediately
+    cache.invalidatePrefix("tutors:");
 
     return NextResponse.json({
       success: true,

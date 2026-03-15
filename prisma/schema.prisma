@@ -116,6 +116,10 @@ model TutorProfile {
   @@index([userId])
   @@index([subjects])
   @@index([hourlyRate])
+  // Composite indexes for common query patterns
+  @@index([profileComplete, verified, rating]) // Tutor listing page (sorted by verified + rating)
+  @@index([profileComplete, hourlyRate])        // Price filter queries
+  @@index([rating, totalReviews])               // Sort by rating with review count
 }
 
 // Academic Qualifications
@@ -230,6 +234,11 @@ model Booking {
   @@index([tutorProfileId])
   @@index([status])
   @@index([startTime])
+  // Composite indexes for common query patterns
+  @@index([studentId, status])          // Student's bookings filtered by status
+  @@index([tutorProfileId, status])     // Tutor's bookings filtered by status
+  @@index([tutorProfileId, startTime])  // Conflict checking for double bookings
+  @@index([status, startTime])          // Upcoming bookings queries
 }
 
 // ============================================
@@ -273,6 +282,9 @@ model Conversation {
   @@index([studentId])
   @@index([tutorId])
   @@index([lastMessageAt])
+  // Composite index for user's conversations sorted by latest message
+  @@index([studentId, lastMessageAt])
+  @@index([tutorId, lastMessageAt])
 }
 
 model Message {
@@ -290,4 +302,7 @@ model Message {
   @@index([conversationId])
   @@index([senderId])
   @@index([createdAt])
+  // Composite index for unread message queries
+  @@index([conversationId, read, senderId])
+  @@index([conversationId, createdAt])
 }

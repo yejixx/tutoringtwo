@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { emailService } from "@/lib/email";
+import { isValidId, sanitizeString } from "@/lib/sanitize";
+import { rateLimiters, getRateLimitHeaders } from "@/lib/rate-limit";
 
 // GET - Get single booking
 export async function GET(
@@ -16,6 +18,14 @@ export async function GET(
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    // Validate ID format
+    if (!isValidId(id)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid booking ID" },
+        { status: 400 }
       );
     }
 
@@ -96,6 +106,26 @@ export async function PATCH(
       );
     }
 
+    // Rate limit: 10 booking status updates per minute
+    const rateLimitResult = rateLimiters.standard(`booking-update:${session.user.id}`);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { success: false, error: rateLimitResult.message },
+        { 
+          status: 429,
+          headers: getRateLimitHeaders(rateLimitResult),
+        }
+      );
+    }
+
+    // Validate ID format
+    if (!isValidId(id)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid booking ID" },
+        { status: 400 }
+      );
+    }
+
     const booking = await prisma.booking.findUnique({
       where: { id },
       include: {
@@ -167,7 +197,7 @@ export async function PATCH(
     
     // Add tutor message if provided (for approval/rejection notes)
     if (tutorMessage) {
-      updateData.tutorMessage = tutorMessage;
+      updateData.tutorMessage = sanitizeString(tutorMessage).slice(0, 1000);
     }
 
     // If approving (REQUESTED -> PENDING), set approvedAt

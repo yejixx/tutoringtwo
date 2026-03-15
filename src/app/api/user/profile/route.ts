@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { sanitizeString } from "@/lib/sanitize";
+import { rateLimiters, getRateLimitHeaders } from "@/lib/rate-limit";
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -12,38 +14,53 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Rate limit: 10 profile updates per minute
+    const rateLimitResult = rateLimiters.standard(`profile:${session.user.id}`);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: rateLimitResult.message },
+        {
+          status: 429,
+          headers: getRateLimitHeaders(rateLimitResult),
+        }
+      );
+    }
+
     const body = await request.json();
-    const { firstName, lastName, email } = body;
+    const { firstName, lastName } = body;
 
     // Validate required fields
-    if (!firstName || !lastName || !email) {
+    if (!firstName || !lastName) {
       return NextResponse.json(
-        { error: "First name, last name, and email are required" },
+        { error: "First name and last name are required" },
         { status: 400 }
       );
     }
 
-    // Check if email is already taken by another user
-    if (email !== session.user.email) {
-      const existingUser = await prisma.user.findUnique({
-        where: { email },
-      });
+    // Sanitize inputs
+    const sanitizedFirstName = sanitizeString(firstName).slice(0, 50);
+    const sanitizedLastName = sanitizeString(lastName).slice(0, 50);
 
-      if (existingUser) {
-        return NextResponse.json(
-          { error: "Email is already in use" },
-          { status: 400 }
-        );
-      }
+    if (!sanitizedFirstName || sanitizedFirstName.length < 1) {
+      return NextResponse.json(
+        { error: "Please enter a valid first name" },
+        { status: 400 }
+      );
     }
 
-    // Update user profile
+    if (!sanitizedLastName || sanitizedLastName.length < 1) {
+      return NextResponse.json(
+        { error: "Please enter a valid last name" },
+        { status: 400 }
+      );
+    }
+
+    // Update user profile (email is not changeable)
     const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
       data: {
-        firstName,
-        lastName,
-        email,
+        firstName: sanitizedFirstName,
+        lastName: sanitizedLastName,
       },
       select: {
         id: true,

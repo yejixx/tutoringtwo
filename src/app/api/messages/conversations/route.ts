@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isValidId, sanitizeMessage } from "@/lib/sanitize";
+import { rateLimiters, getRateLimitHeaders } from "@/lib/rate-limit";
 
 // GET /api/messages/conversations - List all conversations for the user
 export async function GET(req: NextRequest) {
@@ -108,6 +110,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Rate limit: 10 new conversations per minute
+    const rateLimitResult = rateLimiters.standard(`new-convo:${session.user.id}`);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: rateLimitResult.message },
+        { 
+          status: 429,
+          headers: getRateLimitHeaders(rateLimitResult),
+        }
+      );
+    }
+
     const userId = session.user.id;
     const body = await req.json();
     const { tutorId, message } = body;
@@ -119,9 +133,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate tutor ID format
+    if (!isValidId(tutorId)) {
+      return NextResponse.json(
+        { error: "Invalid tutor ID" },
+        { status: 400 }
+      );
+    }
+
     if (!message || message.trim().length === 0) {
       return NextResponse.json(
         { error: "Message is required" },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize message content
+    const sanitizedContent = sanitizeMessage(message);
+    if (!sanitizedContent) {
+      return NextResponse.json(
+        { error: "Invalid message content" },
         { status: 400 }
       );
     }
@@ -179,7 +210,7 @@ export async function POST(req: NextRequest) {
       // Conversation exists, just add the new message
       const newMessage = await prisma.message.create({
         data: {
-          content: message.trim(),
+          content: sanitizedContent,
           senderId: userId,
           conversationId: conversation.id,
         },
@@ -206,7 +237,7 @@ export async function POST(req: NextRequest) {
         tutorId: tutorId,
         messages: {
           create: {
-            content: message.trim(),
+            content: sanitizedContent,
             senderId: userId,
           },
         },

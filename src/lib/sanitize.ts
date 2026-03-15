@@ -80,13 +80,17 @@ export function isValidUuid(id: string): boolean {
 
 /**
  * Validate CUID format (Prisma default IDs)
+ * Supports both CUID v1 (starts with 'c', 25 chars) and CUID v2 (variable length alphanumeric)
  */
 export function isValidCuid(id: string): boolean {
   if (!id) return false;
   
-  // CUID format: starts with 'c', 25 characters
-  const cuidRegex = /^c[a-z0-9]{24}$/;
-  return cuidRegex.test(id);
+  // CUID v1: starts with 'c', 25 characters, lowercase alphanumeric
+  const cuidV1Regex = /^c[a-z0-9]{24}$/;
+  // CUID v2: variable length (21-32 chars), starts with a letter, lowercase alphanumeric
+  const cuidV2Regex = /^[a-z][a-z0-9]{20,31}$/;
+  
+  return cuidV1Regex.test(id) || cuidV2Regex.test(id);
 }
 
 /**

@@ -349,15 +349,17 @@ export default function BookTutorPage({ params }: PageProps) {
                       <CheckCircle className="h-4 w-4 text-primary" />
                     )}
                   </div>
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span>
-                      {tutor.rating > 0 ? tutor.rating.toFixed(1) : "New"}
-                    </span>
-                    {tutor.totalReviews > 0 && (
-                      <span>({tutor.totalReviews})</span>
-                    )}
-                  </div>
+                  {tutor.rating > 0 ? (
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span>{tutor.rating.toFixed(1)}</span>
+                      {tutor.totalReviews > 0 && (
+                        <span>({tutor.totalReviews})</span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-sm text-slate-400">No reviews yet</span>
+                  )}
                 </div>
               </div>
 

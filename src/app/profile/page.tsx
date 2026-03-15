@@ -7,46 +7,51 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { PageLoader } from "@/components/ui/spinner";
-import { 
+import {
   ArrowLeft,
   User,
   Mail,
   Save,
   CheckCircle,
   CreditCard,
-  MapPin,
-  Phone,
-  Globe,
   Calendar,
   GraduationCap,
   Settings,
-  Bell,
-  Shield
+  Lock,
+  Eye,
+  EyeOff,
+  AlertCircle,
 } from "lucide-react";
 import { getInitials } from "@/lib/utils";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { data: session, status: authStatus, update: updateSession } = useSession();
-  
-  const [isLoading, setIsLoading] = useState(false);
+
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
-    email: "",
-    phone: "",
-    location: "",
-    bio: "",
-    timezone: "",
-    preferredLanguage: "English",
+  });
+
+  // Password change state
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
 
   useEffect(() => {
@@ -54,51 +59,97 @@ export default function ProfilePage() {
       setFormData({
         firstName: session.user.firstName || "",
         lastName: session.user.lastName || "",
-        email: session.user.email || "",
-        phone: (session.user as any).phone || "",
-        location: (session.user as any).location || "",
-        bio: (session.user as any).bio || "",
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        preferredLanguage: (session.user as any).preferredLanguage || "English",
       });
+      // If avatarUrl is "HAS_AVATAR", the Avatar component handles fetching the actual URL
       setAvatarUrl(session.user.avatarUrl || undefined);
     } else if (authStatus === "unauthenticated") {
       router.push("/login?callbackUrl=/profile");
     }
-  }, [authStatus, session]);
+  }, [authStatus, session, router]);
 
   const handleAvatarChange = async (newUrl: string) => {
     setAvatarUrl(newUrl);
-    // Avatar is uploaded separately via the avatar component
     await updateSession();
+    setSuccessMessage("Profile photo updated!");
+    setTimeout(() => setSuccessMessage(null), 3000);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     setSuccessMessage(null);
+    setErrorMessage(null);
 
     try {
       const response = await fetch("/api/user/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+        }),
       });
 
-      if (response.ok) {
-        // Update the session with new data
+      const data = await response.json();
+
+      if (response.ok && data.success) {
         await updateSession();
         setSuccessMessage("Profile updated successfully!");
         setTimeout(() => setSuccessMessage(null), 3000);
       } else {
-        const data = await response.json();
-        alert(data.error || "Failed to update profile");
+        setErrorMessage(data.error || "Failed to update profile");
+        setTimeout(() => setErrorMessage(null), 5000);
       }
     } catch (error) {
       console.error("Failed to update profile:", error);
-      alert("Failed to update profile");
+      setErrorMessage("Failed to update profile. Please try again.");
+      setTimeout(() => setErrorMessage(null), 5000);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError("New passwords do not match");
+      return;
+    }
+
+    if (passwordData.newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters");
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    try {
+      const response = await fetch("/api/user/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setPasswordSuccess("Password changed successfully!");
+        setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+        setTimeout(() => setPasswordSuccess(null), 5000);
+      } else {
+        setPasswordError(data.error || "Failed to change password");
+      }
+    } catch (error) {
+      console.error("Failed to change password:", error);
+      setPasswordError("Failed to change password. Please try again.");
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -107,13 +158,14 @@ export default function ProfilePage() {
   }
 
   const user = session?.user;
+  const isOAuthUser = !user?.email?.includes("@") ? false : true; // all users have email
 
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-white border-b border-slate-200">
         <div className="container mx-auto px-4 py-6">
-          <Link 
+          <Link
             href="/dashboard"
             className="inline-flex items-center text-sm text-slate-500 hover:text-slate-700 mb-4 transition-colors"
           >
@@ -121,8 +173,8 @@ export default function ProfilePage() {
             Back to Dashboard
           </Link>
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-primary/10 rounded-xl">
-              <Settings className="h-8 w-8 text-primary" />
+            <div className="p-3 bg-blue-50 rounded-xl">
+              <Settings className="h-8 w-8 text-blue-600" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-900">Account Settings</h1>
@@ -133,22 +185,25 @@ export default function ProfilePage() {
       </div>
 
       <div className="container mx-auto px-4 py-8 max-w-4xl">
+        {/* Success / Error Alerts */}
         {successMessage && (
-          <Card className="mb-6 border-green-200 bg-green-50">
-            <CardContent className="py-4">
-              <div className="flex items-center gap-2 text-green-700">
-                <CheckCircle className="h-5 w-5" />
-                <p className="font-medium">{successMessage}</p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="mb-6 flex items-center gap-2 p-4 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg">
+            <CheckCircle className="h-4 w-4 shrink-0" />
+            {successMessage}
+          </div>
+        )}
+        {errorMessage && (
+          <div className="mb-6 flex items-center gap-2 p-4 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {errorMessage}
+          </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Profile Card */}
           <div className="lg:col-span-1 space-y-6">
             {/* Profile Photo Card */}
-            <Card className="border-0 shadow-sm">
+            <Card className="border border-slate-200 shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex flex-col items-center text-center">
                   <Avatar
@@ -158,40 +213,33 @@ export default function ProfilePage() {
                     editable={true}
                     onUpload={handleAvatarChange}
                   />
-                  <h2 className="mt-4 text-xl font-semibold text-slate-900">
+                  <h2 className="mt-4 text-lg font-semibold text-slate-900">
                     {user?.firstName} {user?.lastName}
                   </h2>
-                  <p className="text-slate-500 text-sm">{user?.email}</p>
+                  <p className="text-slate-500 text-sm mt-0.5">{user?.email}</p>
                   <Badge variant="secondary" className="mt-2 capitalize">
                     {user?.role?.toLowerCase()}
                   </Badge>
-                  
-                  <div className="w-full mt-6 pt-6 border-t border-slate-100">
-                    <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
-                      <Calendar className="h-4 w-4" />
-                      <span>Joined {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
-                    </div>
-                  </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Quick Links */}
-            <Card className="border-0 shadow-sm">
+            <Card className="border border-slate-200 shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold text-slate-900">Quick Actions</CardTitle>
+                <CardTitle className="text-sm font-semibold text-slate-900 uppercase tracking-wide">Quick Actions</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-1">
                 {user?.role === "TUTOR" && (
                   <>
                     <Link href="/tutor/onboarding" className="block">
-                      <Button variant="ghost" className="w-full justify-start text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                      <Button variant="ghost" className="w-full justify-start text-slate-600 hover:text-slate-900 hover:bg-slate-50 h-9">
                         <GraduationCap className="h-4 w-4 mr-3" />
                         Edit Tutor Profile
                       </Button>
                     </Link>
                     <Link href="/tutor/stripe" className="block">
-                      <Button variant="ghost" className="w-full justify-start text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                      <Button variant="ghost" className="w-full justify-start text-slate-600 hover:text-slate-900 hover:bg-slate-50 h-9">
                         <CreditCard className="h-4 w-4 mr-3" />
                         Payment Settings
                       </Button>
@@ -199,7 +247,7 @@ export default function ProfilePage() {
                   </>
                 )}
                 <Link href="/bookings" className="block">
-                  <Button variant="ghost" className="w-full justify-start text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                  <Button variant="ghost" className="w-full justify-start text-slate-600 hover:text-slate-900 hover:bg-slate-50 h-9">
                     <Calendar className="h-4 w-4 mr-3" />
                     My Bookings
                   </Button>
@@ -208,10 +256,10 @@ export default function ProfilePage() {
             </Card>
           </div>
 
-          {/* Right Column - Edit Form */}
+          {/* Right Column - Forms */}
           <div className="lg:col-span-2 space-y-6">
             {/* Personal Information */}
-            <Card className="border-0 shadow-sm">
+            <Card className="border border-slate-200 shadow-sm">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-50 rounded-lg">
@@ -219,13 +267,12 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <CardTitle className="text-lg font-semibold text-slate-900">Personal Information</CardTitle>
-                    <CardDescription className="text-slate-500">Update your personal details</CardDescription>
+                    <CardDescription className="text-slate-500">Update your name</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Name Row */}
+                <form onSubmit={handleSubmit} className="space-y-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="firstName" className="text-sm font-medium text-slate-700">First Name</Label>
@@ -249,7 +296,7 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
-                  {/* Email */}
+                  {/* Email - Read Only */}
                   <div className="space-y-2">
                     <Label htmlFor="email" className="text-sm font-medium text-slate-700">Email Address</Label>
                     <div className="relative">
@@ -257,71 +304,13 @@ export default function ProfilePage() {
                       <Input
                         id="email"
                         type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="pl-10 bg-white border-slate-200"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  {/* Phone & Location Row */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="phone" className="text-sm font-medium text-slate-700">Phone Number</Label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input
-                          id="phone"
-                          type="tel"
-                          value={formData.phone}
-                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                          className="pl-10 bg-white border-slate-200"
-                          placeholder="+1 (555) 123-4567"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="location" className="text-sm font-medium text-slate-700">Location</Label>
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input
-                          id="location"
-                          value={formData.location}
-                          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                          className="pl-10 bg-white border-slate-200"
-                          placeholder="City, Country"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Bio */}
-                  <div className="space-y-2">
-                    <Label htmlFor="bio" className="text-sm font-medium text-slate-700">Bio</Label>
-                    <Textarea
-                      id="bio"
-                      value={formData.bio}
-                      onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                      className="bg-white border-slate-200 min-h-[100px] resize-none"
-                      placeholder="Tell us a bit about yourself..."
-                    />
-                    <p className="text-xs text-slate-400">Brief description for your profile. URLs are hyperlinked.</p>
-                  </div>
-
-                  {/* Timezone */}
-                  <div className="space-y-2">
-                    <Label htmlFor="timezone" className="text-sm font-medium text-slate-700">Timezone</Label>
-                    <div className="relative">
-                      <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                      <Input
-                        id="timezone"
-                        value={formData.timezone}
-                        className="pl-10 bg-slate-50 border-slate-200 text-slate-500"
+                        value={user?.email || ""}
+                        className="pl-10 bg-slate-50 border-slate-200 text-slate-500 cursor-not-allowed"
                         disabled
+                        readOnly
                       />
                     </div>
-                    <p className="text-xs text-slate-400">Automatically detected from your browser</p>
+                    <p className="text-xs text-slate-400">Email address cannot be changed</p>
                   </div>
 
                   <div className="pt-4 border-t border-slate-100">
@@ -340,69 +329,112 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            {/* Notification Preferences */}
-            <Card className="border-0 shadow-sm">
+            {/* Change Password */}
+            <Card className="border border-slate-200 shadow-sm">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-amber-50 rounded-lg">
-                    <Bell className="h-5 w-5 text-amber-600" />
+                    <Lock className="h-5 w-5 text-amber-600" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg font-semibold text-slate-900">Notification Preferences</CardTitle>
-                    <CardDescription className="text-slate-500">Manage how you receive notifications</CardDescription>
+                    <CardTitle className="text-lg font-semibold text-slate-900">Change Password</CardTitle>
+                    <CardDescription className="text-slate-500">Update your account password</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between py-3 border-b border-slate-100">
-                    <div>
-                      <p className="font-medium text-slate-700">Email Notifications</p>
-                      <p className="text-sm text-slate-500">Receive booking updates via email</p>
-                    </div>
-                    <Badge variant="secondary" className="bg-green-100 text-green-700">Enabled</Badge>
+                {passwordSuccess && (
+                  <div className="mb-4 flex items-center gap-2 p-3 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg">
+                    <CheckCircle className="h-4 w-4 shrink-0" />
+                    {passwordSuccess}
                   </div>
-                  <div className="flex items-center justify-between py-3 border-b border-slate-100">
-                    <div>
-                      <p className="font-medium text-slate-700">Message Alerts</p>
-                      <p className="text-sm text-slate-500">Get notified when you receive messages</p>
-                    </div>
-                    <Badge variant="secondary" className="bg-green-100 text-green-700">Enabled</Badge>
+                )}
+                {passwordError && (
+                  <div className="mb-4 flex items-center gap-2 p-3 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    {passwordError}
                   </div>
-                  <div className="flex items-center justify-between py-3">
-                    <div>
-                      <p className="font-medium text-slate-700">Marketing Emails</p>
-                      <p className="text-sm text-slate-500">Receive tips and product updates</p>
-                    </div>
-                    <Badge variant="secondary" className="bg-slate-100 text-slate-600">Disabled</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                )}
 
-            {/* Security */}
-            <Card className="border-0 shadow-sm">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-50 rounded-lg">
-                    <Shield className="h-5 w-5 text-green-600" />
+                <form onSubmit={handlePasswordChange} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="currentPassword" className="text-sm font-medium text-slate-700">Current Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="currentPassword"
+                        type={showCurrentPassword ? "text" : "password"}
+                        value={passwordData.currentPassword}
+                        onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                        className="bg-white border-slate-200 pr-10"
+                        required
+                        placeholder="Enter current password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        tabIndex={-1}
+                      >
+                        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle className="text-lg font-semibold text-slate-900">Security</CardTitle>
-                    <CardDescription className="text-slate-500">Manage your account security</CardDescription>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="newPassword" className="text-sm font-medium text-slate-700">New Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="newPassword"
+                        type={showNewPassword ? "text" : "password"}
+                        value={passwordData.newPassword}
+                        onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                        className="bg-white border-slate-200 pr-10"
+                        required
+                        placeholder="Enter new password"
+                        minLength={8}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        tabIndex={-1}
+                      >
+                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-400">Must be at least 8 characters with uppercase, lowercase, number and special character</p>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="font-medium text-slate-700">Password</p>
-                    <p className="text-sm text-slate-500">Last changed: Never</p>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword" className="text-sm font-medium text-slate-700">Confirm New Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={passwordData.confirmPassword}
+                        onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                        className="bg-white border-slate-200 pr-10"
+                        required
+                        placeholder="Confirm new password"
+                        minLength={8}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        tabIndex={-1}
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
-                  <Button variant="outline" size="sm">
-                    Change Password
-                  </Button>
-                </div>
+
+                  <div className="pt-4 border-t border-slate-100">
+                    <Button type="submit" variant="outline" disabled={isChangingPassword} className="w-full md:w-auto">
+                      {isChangingPassword ? "Changing..." : "Change Password"}
+                    </Button>
+                  </div>
+                </form>
               </CardContent>
             </Card>
           </div>

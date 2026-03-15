@@ -11,6 +11,20 @@ const loginAttempts = new Map<string, { count: number; lastAttempt: number; lock
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 const ATTEMPT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_LOGIN_MAP_SIZE = 10000; // Prevent memory exhaustion
+
+// Periodic cleanup of expired login attempt entries
+if (typeof setInterval !== "undefined") {
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of loginAttempts.entries()) {
+      // Remove entries older than the lockout window
+      if (now - entry.lastAttempt > LOCKOUT_DURATION_MS * 2) {
+        loginAttempts.delete(key);
+      }
+    }
+  }, 5 * 60 * 1000); // Clean up every 5 minutes
+}
 
 function checkLoginRateLimit(email: string): { allowed: boolean; message?: string; remainingAttempts?: number } {
   const now = Date.now();
@@ -18,6 +32,12 @@ function checkLoginRateLimit(email: string): { allowed: boolean; message?: strin
   const attempts = loginAttempts.get(key);
 
   if (!attempts) {
+    // Prevent memory exhaustion from enumeration attacks
+    if (loginAttempts.size >= MAX_LOGIN_MAP_SIZE) {
+      // Evict oldest entry
+      const oldestKey = loginAttempts.keys().next().value;
+      if (oldestKey) loginAttempts.delete(oldestKey);
+    }
     loginAttempts.set(key, { count: 1, lastAttempt: now });
     return { allowed: true, remainingAttempts: MAX_LOGIN_ATTEMPTS - 1 };
   }
@@ -154,7 +174,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           firstName: user.firstName,
           lastName: user.lastName,
           role: user.role as UserRole,
-          avatarUrl: user.avatarUrl,
+          // Don't pass base64 data URIs — they break JWT cookie size limits
+          avatarUrl: user.avatarUrl?.startsWith("data:") ? "HAS_AVATAR" : user.avatarUrl,
           emailVerified: !!(user as { emailVerified?: Date }).emailVerified,
         };
       },
@@ -215,7 +236,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             user.firstName = newUser.firstName;
             user.lastName = newUser.lastName;
             user.role = newUser.role as UserRole;
-            user.avatarUrl = newUser.avatarUrl;
+            user.avatarUrl = newUser.avatarUrl?.startsWith("data:") ? "HAS_AVATAR" : newUser.avatarUrl;
             user.emailVerified = !!newUser.emailVerified;
           } else {
             // Check if this Google account is linked
@@ -254,7 +275,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             user.firstName = existingUser.firstName;
             user.lastName = existingUser.lastName;
             user.role = existingUser.role as UserRole;
-            user.avatarUrl = existingUser.avatarUrl;
+            user.avatarUrl = existingUser.avatarUrl?.startsWith("data:") ? "HAS_AVATAR" : existingUser.avatarUrl;
             user.emailVerified = !!existingUser.emailVerified;
           }
 
@@ -267,21 +288,33 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       return true;
     },
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
         token.email = user.email!;
         token.firstName = user.firstName;
         token.lastName = user.lastName;
         token.role = user.role;
-        token.avatarUrl = user.avatarUrl;
+        // Don't store base64 data URIs in JWT (they exceed cookie size limits)
+        token.avatarUrl = user.avatarUrl?.startsWith("data:") ? "HAS_AVATAR" : user.avatarUrl;
         token.emailVerified = !!user.emailVerified;
       }
 
-      // Handle session update (e.g., after email verification)
-      if (trigger === "update" && session) {
-        token.emailVerified = session.emailVerified ?? token.emailVerified;
-        token.role = session.role ?? token.role;
+      // Handle session update - refresh user data from database
+      if (trigger === "update") {
+        const freshUser = await prisma.user.findUnique({
+          where: { id: token.id },
+        });
+
+        if (freshUser) {
+          token.firstName = freshUser.firstName;
+          token.lastName = freshUser.lastName;
+          token.email = freshUser.email;
+          token.role = freshUser.role as UserRole;
+          // Don't store base64 data URIs in JWT
+          token.avatarUrl = freshUser.avatarUrl?.startsWith("data:") ? "HAS_AVATAR" : freshUser.avatarUrl;
+          token.emailVerified = !!(freshUser as any).emailVerified;
+        }
       }
 
       return token;
